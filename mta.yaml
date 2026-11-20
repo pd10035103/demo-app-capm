@@ -1,0 +1,58 @@
+_schema-version: 3.3.0
+ID: home-set-api
+version: 1.0.0
+description: "Welcome to your new CAP project."
+parameters:
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+modules:
+  - name: home-set-api-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      instances: 1
+      buildpack: nodejs_buildpack
+      routes:
+        - route: "${default-url}"
+        - route: "${default-host}.cert.${default-domain}"
+    build-parameters:
+      builder: npm-ci
+    provides:
+      - name: srv-api # required by consumers of CAP services (e.g. approuter)
+        properties:
+          srv-url: ${default-url}
+          srv-cert-url: '${protocol}://${default-host}.cert.${default-domain}'
+    requires:
+      - name: s4-cap-app-destination
+      - name: ABIS-Foods-and-Protein
+        parameters:
+          config:
+            credential-type: X509_GENERATED
+            app-identifier: srv
+
+resources:
+  - name: s4-cap-app-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+  - name:  ABIS-Foods-and-Protein
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: identity
+      service-name: ABIS Foods and Protein
+      service-plan: application
+      config:
+        provided-apis:
+          - name: ABIS Foods and Protein
+            description: API exposed by the application
+        display-name: home-set-api
+        oauth2-configuration:
+          token-policy:
+            access-token-format: "jwt"
+        xsuaa-cross-consumption: true
